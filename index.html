@@ -129,6 +129,16 @@
                     <option value="Ação de Dano Material">Ação de Dano Material</option>
                 </select>
             </div>
+
+            <!-- PDF Upload Section (conditionally visible) -->
+            <div id="pdfUploadSection" class="mb-6 hidden">
+                <label for="sentencaPDF" class="form-label">PDF da Sentença (Apenas para Recurso Inominado)</label>
+                <input type="file" id="sentencaPDF" accept="application/pdf" class="form-input">
+                <p class="text-sm text-gray-500 mt-2">
+                    <em>Atenção: A inteligência artificial não consegue ler o conteúdo do arquivo PDF diretamente. Por favor, para que a IA possa gerar o recurso com base na sentença, transcreva as informações mais relevantes (fatos, fundamentos da decisão, pontos de discordância) no campo "Resumo da Demanda" abaixo.</em>
+                </p>
+            </div>
+
             <div>
                 <label for="resumoDemanda" class="form-label">Resumo da Demanda</label>
                 <textarea id="resumoDemanda" rows="10" class="form-textarea" placeholder="Descreva de forma clara e concisa os fatos e o que você busca com esta petição. Quanto mais detalhes, melhor a IA será."></textarea>
@@ -178,6 +188,33 @@
         const errorMessageCard = document.getElementById('errorMessageCard');
         const errorMessage = document.getElementById('errorMessage');
         const copyToClipboardBtn = document.getElementById('copyToClipboardBtn');
+        const tipoPeticao = document.getElementById('tipoPeticao'); // Get select element
+        const pdfUploadSection = document.getElementById('pdfUploadSection'); // Get PDF section
+
+        // --- INSTRUÇÃO IMPORTANTE PARA DEPLOYMENT ONLINE ---
+        // Quando você implanta este site, a chave de API da Google Gemini
+        // não é mais automaticamente fornecida como no ambiente Canvas.
+        // O erro "METHOD DOESN'T ALLOW UNREGISTERED CALLERS" indica que
+        // a API está sendo chamada sem uma chave de API válida ou com uma
+        // chave que não permite acesso público.
+        //
+        // PARA RESOLVER:
+        // 1. Vá ao Google Cloud Console: console.cloud.google.com
+        // 2. Crie um novo projeto (ou use um existente).
+        // 3. Habilite a "Generative Language API" para este projeto.
+        // 4. Em "APIs & Services" > "Credentials", crie uma nova chave de API.
+        //    (É recomendável restringir esta chave a domínios específicos para segurança).
+        // 5. Substitua a linha abaixo pela SUA CHAVE DE API gerada:
+        //    Exemplo: const YOUR_API_KEY = "SUA_CHAVE_DE_API_AQUI";
+        //    E então use YOUR_API_KEY na URL da API.
+        //
+        // ATENÇÃO: Compartilhar sua chave de API publicamente pode ser um risco de segurança.
+        // Para aplicações em produção, é mais seguro usar um backend para chamar a API,
+        // mantendo a chave de API no lado do servidor.
+        // -----------------------------------------------------
+        const API_KEY_FOR_DEPLOYMENT = ""; // <-- SUBSTITUA ESTA LINHA PELA SUA CHAVE DE API DO GOOGLE CLOUD
+        // Se estiver executando no Canvas, você pode deixar esta linha vazia,
+        // pois o Canvas injeta a chave automaticamente para testes.
 
         // Event listener for the "Generate Petition" button
         gerarPeticaoBtn.addEventListener('click', async () => {
@@ -203,19 +240,19 @@
                 endereco: document.getElementById('requeridoEndereco').value,
             };
 
-            const tipoPeticao = document.getElementById('tipoPeticao').value;
             const resumoDemanda = document.getElementById('resumoDemanda').value;
 
             // Basic validation
-            if (!requerente.nome || !requerido.nome || !tipoPeticao || !resumoDemanda) {
+            if (!requerente.nome || !requerido.nome || !tipoPeticao.value || !resumoDemanda) {
                 errorMessage.innerHTML = '<span class="mr-3 text-2xl">⚠️</span> Por favor, preencha todos os campos obrigatórios: Nome do Requerente, Nome do Requerido, Tipo de Petição e Resumo da Demanda.';
                 errorMessageCard.classList.remove('hidden');
                 return;
             }
 
             // Construct the prompt for the AI
+            // Note: The AI cannot directly read PDF content. The prompt relies solely on the 'resumoDemanda' field.
             const prompt = `
-                Gere uma petição jurídica do tipo "${tipoPeticao}" com base nos seguintes dados e no resumo da demanda.
+                Gere uma petição jurídica do tipo "${tipoPeticao.value}" com base nos seguintes dados e no resumo da demanda.
                 A petição deve ser formal, estruturada como um documento legal e em português do Brasil.
 
                 ---
@@ -257,8 +294,10 @@
                 let chatHistory = [];
                 chatHistory.push({ role: "user", parts: [{ text: prompt }] });
                 const payload = { contents: chatHistory };
-                const apiKey = ""; // Canvas will provide this key
-                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+                // Use a chave de API fornecida pelo usuário ou a injetada pelo Canvas
+                const currentApiKey = typeof __app_id !== 'undefined' ? "" : API_KEY_FOR_DEPLOYMENT; // Canvas injects key if __app_id exists, else use user's key
+                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${currentApiKey}`;
+
 
                 const response = await fetch(apiUrl, {
                     method: 'POST',
@@ -269,7 +308,15 @@
                 if (!response.ok) {
                     const errorData = await response.json();
                     console.error('API Error Response:', errorData); // Log full error response
-                    throw new Error(`Erro na comunicação com a IA: ${errorData.error?.message || response.statusText}. Por favor, tente novamente.`);
+                    let errorMessageText = `Erro na comunicação com a IA: ${errorData.error?.message || response.statusText}.`;
+
+                    // Specific error message for unregistered callers
+                    if (errorData.error && errorData.error.message && errorData.error.message.includes("METHOD_LACKS_API_KEY") || errorData.error.message.includes("does not allow unregistered callers")) {
+                        errorMessageText += " Parece que a chave de API está faltando ou não tem permissões para acesso público. Por favor, verifique as instruções no código para configurar sua própria chave de API do Google Cloud.";
+                    } else {
+                        errorMessageText += " Por favor, tente novamente.";
+                    }
+                    throw new Error(errorMessageText);
                 }
 
                 const result = await response.json();
@@ -299,6 +346,15 @@
                 // Hide loading spinner and enable button
                 loadingSpinner.classList.add('hidden');
                 gerarPeticaoBtn.disabled = false;
+            }
+        });
+
+        // Event listener for toggling PDF upload section based on petition type
+        tipoPeticao.addEventListener('change', () => {
+            if (tipoPeticao.value === 'Recurso Inominado') {
+                pdfUploadSection.classList.remove('hidden');
+            } else {
+                pdfUploadSection.classList.add('hidden');
             }
         });
 
