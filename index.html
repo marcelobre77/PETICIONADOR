@@ -3,388 +3,408 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gerador de Petições Jurídicas</title>
-    <!-- Tailwind CSS CDN -->
+    <title>Qual o Remédio? - Jogo Jurídico</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Inter Font -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
     <style>
-        /* Custom styles for a more professional look */
         body {
             font-family: 'Inter', sans-serif;
-            background-color: #e2e8f0; /* Light blue-gray background */
-            display: flex;
-            justify-content: center;
-            align-items: flex-start; /* Align to start, not center vertically */
-            min-height: 100vh;
-            padding: 2rem 1rem; /* Add padding for small screens */
-        }
-        .container {
-            max-width: 960px; /* Slightly wider container */
-            width: 100%;
-            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05); /* Stronger shadow for depth */
-            border-radius: 1rem; /* More rounded corners for the main container */
+            background-color: #f0f4f8; /* Azul-acinzentado claro de fundo */
         }
         .card {
-            @apply bg-white p-8 rounded-xl shadow-lg mb-6 border border-gray-100; /* Enhanced card styling */
-            transition: transform 0.2s ease-in-out;
+            transition: transform 0.2s, box-shadow 0.2s;
+            border-radius: 0.75rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            position: relative;
         }
-        .card:hover {
-            transform: translateY(-2px); /* Slight lift on hover */
+        .card:not(.answered):hover {
+            transform: scale(1.05);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
         }
-        .form-label {
-            @apply block text-sm font-medium text-gray-800 mb-1; /* Darker text for labels */
+        .card.unanswered {
+            background-color: #4a5568; /* Cinza escuro */
+            color: white;
         }
-        /* New style for highlighted labels */
-        .highlighted-label {
-            @apply bg-blue-800 text-white font-bold py-1 px-3 rounded-md inline-block mb-1; /* Navy background, white bold text, padding, rounded */
+        .card.correct {
+            background-color: #38a169; /* Verde sucesso */
+            color: white;
         }
-        .form-input, .form-select, .form-textarea {
-            @apply mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-600 focus:ring-blue-600 sm:text-base p-3 transition duration-150 ease-in-out; /* Larger padding, blue focus ring, rounded */
-            background-color: #f9fafb; /* Light background for inputs */
+        .card.incorrect {
+            background-color: #c53030; /* Vermelho erro */
+            color: white;
         }
-        .btn-primary {
-            @apply inline-flex items-center px-8 py-4 border border-transparent text-base font-semibold rounded-lg shadow-md text-white bg-gradient-to-r from-blue-600 to-blue-800 hover:from-blue-700 hover:to-blue-900 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition duration-300 ease-in-out transform hover:scale-105; /* Gradient, larger, bolder, scale on hover */
+        .modal-backdrop {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.6);
+            z-index: 40;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
-        #copyToClipboardBtn {
-            @apply bg-gradient-to-r from-green-500 to-green-700 hover:from-green-600 hover:to-green-800 focus:ring-green-500; /* Green gradient for copy button */
+        .modal-content {
+            background: white;
+            padding: 2rem;
+            border-radius: 0.75rem;
+            width: 90%;
+            max-width: 600px;
+            max-height: 90vh;
+            overflow-y: auto;
         }
-        #errorMessageCard {
-            @apply bg-red-50 p-4 rounded-lg border border-red-300 text-red-800; /* Softer red for errors */
+        #game-board {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+            gap: 1rem;
+        }
+        @media (min-width: 640px) {
+            #game-board {
+                grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+            }
+        }
+        @media (min-width: 1024px) {
+            #game-board {
+                grid-template-columns: repeat(10, 1fr);
+            }
         }
     </style>
 </head>
-<body class="p-4">
-    <div class="container mx-auto">
-        <h1 class="text-5xl font-extrabold text-center text-gray-900 mb-2 leading-tight">
-            ✍️ Gerador Inteligente de Petições Jurídicas
-        </h1>
-        <p class="text-center text-gray-600 text-lg italic mb-10">Uma criação de Marcelo Brendon</p>
+<body class="bg-gray-100 text-gray-800">
 
-        <!-- Requester Data Card -->
-        <div class="card">
-            <h2 class="text-3xl font-semibold text-gray-800 mb-6 flex items-center">
-                <span class="mr-3">👤</span> Dados do Requerente
-            </h2>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                    <label for="requerenteNome" class="highlighted-label">Nome Completo</label>
-                    <input type="text" id="requerenteNome" class="form-input" placeholder="Seu nome completo">
-                </div>
-                <div>
-                    <label for="requerenteEstadoCivil" class="highlighted-label">Estado Civil</label>
-                    <input type="text" id="requerenteEstadoCivil" class="form-input" placeholder="Ex: Solteiro(a), Casado(a)">
-                </div>
-                <div>
-                    <label for="requerenteProfissao" class="highlighted-label">Profissão</label>
-                    <input type="text" id="requerenteProfissao" class="form-input" placeholder="Sua profissão">
-                </div>
-                <div>
-                    <label for="requerenteCPF" class="highlighted-label">CPF</label>
-                    <input type="text" id="requerenteCPF" class="form-input" placeholder="000.000.000-00">
-                </div>
-                <div>
-                    <label for="requerenteEmail" class="highlighted-label">Email</label>
-                    <input type="email" id="requerenteEmail" class="form-input" placeholder="seu.email@example.com">
-                </div>
-                <div>
-                    <label for="requerenteResidencia" class="highlighted-label">Endereço de Residência</label>
-                    <input type="text" id="requerenteResidencia" class="form-input" placeholder="Rua, Número, Bairro, Cidade, Estado">
+    <div class="container mx-auto p-4 md:p-8">
+        <header class="text-center mb-8">
+            <h1 class="text-4xl md:text-5xl font-bold text-gray-700">Qual o Remédio?</h1>
+            <p class="text-lg text-gray-500 mt-2">Clique em uma carta para revelar o caso e escolha a ação correta.</p>
+        </header>
+
+        <!-- Painel de Pontuação e Controle -->
+        <div id="score-panel" class="bg-white p-4 rounded-lg shadow-md mb-8 flex flex-col sm:flex-row justify-between items-center sticky top-0 z-10">
+            <div class="text-xl font-semibold">
+                Pontuação: <span id="score" class="text-blue-600">0</span> / <span id="total-cards">50</span>
+            </div>
+            <button id="restart-button" class="mt-4 sm:mt-0 bg-blue-600 text-white font-bold py-2 px-6 rounded-lg hover:bg-blue-700 transition duration-300">Reiniciar Jogo</button>
+        </div>
+
+        <!-- Tabuleiro do Jogo -->
+        <main id="game-board" class="p-4 bg-white rounded-lg shadow-inner"></main>
+
+        <!-- Modal para Perguntas -->
+        <div id="question-modal" class="modal-backdrop hidden">
+            <div class="modal-content shadow-2xl">
+                <p id="question-text" class="text-lg md:text-xl mb-6 text-gray-700"></p>
+                <div id="options-container" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <!-- Opções serão inseridas aqui via JS -->
                 </div>
             </div>
         </div>
-
-        <!-- Respondent Data Card -->
-        <div class="card">
-            <h2 class="text-3xl font-semibold text-gray-800 mb-6 flex items-center">
-                <span class="mr-3">⚖️</span> Dados do Requerido
-            </h2>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                    <label for="requeridoNome" class="highlighted-label">Nome/Razão Social</label>
-                    <input type="text" id="requeridoNome" class="form-input" placeholder="Nome completo ou Razão Social">
-                </div>
-                <div>
-                    <label for="requeridoCPFCNPJ" class="highlighted-label">CPF ou CNPJ</label>
-                    <input type="text" id="requeridoCPFCNPJ" class="form-input" placeholder="000.000.000-00 ou 00.000.000/0000-00">
-                </div>
-                <div class="md:col-span-2">
-                    <label for="requeridoEndereco" class="highlighted-label">Endereço Completo</label>
-                    <input type="text" id="requeridoEndereco" class="form-input" placeholder="Rua, Número, Bairro, Cidade, Estado">
-                </div>
+        
+        <!-- Modal para Inserir Nome -->
+        <div id="name-modal" class="modal-backdrop hidden">
+            <div class="modal-content shadow-2xl text-center">
+                 <h2 class="text-2xl font-bold text-gray-800 mb-4">Resposta Registrada!</h2>
+                 <p class="text-lg mb-4">Digite seu nome para gravar na carta.</p>
+                 <input type="text" id="player-name-input" class="w-full p-2 border border-gray-300 rounded-md mb-4" placeholder="Seu nome (opcional)">
+                 <button id="save-name-button" class="w-full bg-green-600 text-white font-bold py-2 px-6 rounded-lg hover:bg-green-700 transition duration-300">
+                     Salvar
+                 </button>
+            </div>
+        </div>
+        
+        <!-- Modal de Fim de Jogo -->
+        <div id="game-over-modal" class="modal-backdrop hidden">
+            <div class="modal-content shadow-2xl text-center">
+                 <h2 class="text-3xl font-bold text-gray-800 mb-4">Fim de Jogo!</h2>
+                 <p class="text-xl mb-2">Sua pontuação final é:</p>
+                 <p class="text-5xl font-bold text-blue-600 mb-6" id="final-score"></p>
+                 <p id="final-message" class="text-lg mb-8"></p>
+                 <button id="play-again-button" class="w-full bg-blue-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-blue-700 transition duration-300">
+                     Jogar Novamente
+                 </button>
             </div>
         </div>
 
-        <!-- Petition Type and Demand Summary Card -->
-        <div class="card">
-            <h2 class="text-3xl font-semibold text-gray-800 mb-6 flex items-center">
-                <span class="mr-3">📄</span> Detalhes da Petição
-            </h2>
-            <div class="mb-6">
-                <label for="tipoPeticao" class="form-label">Tipo de Petição</label>
-                <select id="tipoPeticao" class="form-select">
-                    <option value="">Selecione o tipo de petição</option>
-                    <option value="Ação de Dano Moral">Ação de Dano Moral</option>
-                    <option value="Recurso Inominado">Recurso Inominado</option>
-                    <option value="Ação de Dano Material">Ação de Dano Material</option>
-                </select>
-            </div>
-
-            <!-- PDF Upload Section (conditionally visible) -->
-            <div id="pdfUploadSection" class="mb-6 hidden">
-                <label for="sentencaPDF" class="form-label">PDF da Sentença (Apenas para Recurso Inominado)</label>
-                <input type="file" id="sentencaPDF" accept="application/pdf" class="form-input">
-                <p class="text-sm text-gray-500 mt-2">
-                    <em>Atenção: A inteligência artificial não consegue ler o conteúdo do arquivo PDF diretamente. Por favor, para que a IA possa gerar o recurso com base na sentença, transcreva as informações mais relevantes (fatos, fundamentos da decisão, pontos de discordância) no campo "Resumo da Demanda" abaixo.</em>
-                </p>
-            </div>
-
-            <div>
-                <label for="resumoDemanda" class="form-label">Resumo da Demanda</label>
-                <textarea id="resumoDemanda" rows="10" class="form-textarea" placeholder="Descreva de forma clara e concisa os fatos e o que você busca com esta petição. Quanto mais detalhes, melhor a IA será."></textarea>
-            </div>
-        </div>
-
-        <!-- Generate Button -->
-        <div class="text-center mb-8">
-            <button id="gerarPeticaoBtn" class="btn-primary">
-                <svg class="animate-spin -ml-1 mr-3 h-6 w-6 text-white hidden" id="loadingSpinner" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-                Gerar Petição
-            </button>
-        </div>
-
-        <!-- Generated Petition Display Area -->
-        <div class="card hidden" id="peticaoGeradaCard">
-            <h2 class="text-3xl font-semibold text-gray-800 mb-6 flex items-center">
-                <span class="mr-3">📝</span> Petição Gerada
-            </h2>
-            <div id="peticaoGerada" class="bg-gray-50 p-6 rounded-md border border-gray-200 whitespace-pre-wrap text-gray-800 text-base leading-relaxed overflow-auto max-h-96">
-                <!-- Petition content will be loaded here -->
-            </div>
-             <div class="mt-6 text-center">
-                <button id="copyToClipboardBtn" class="btn-primary">
-                    <span class="mr-2">📋</span> Copiar para Área de Transferência
-                </button>
-            </div>
-        </div>
-
-        <!-- Error Message Area -->
-        <div class="card hidden" id="errorMessageCard">
-            <p id="errorMessage" class="font-bold text-lg flex items-center">
-                <span class="mr-3 text-2xl">❌</span>
-            </p>
-        </div>
     </div>
 
-    <script type="module">
-        // Get references to DOM elements
-        const gerarPeticaoBtn = document.getElementById('gerarPeticaoBtn');
-        const loadingSpinner = document.getElementById('loadingSpinner');
-        const peticaoGeradaCard = document.getElementById('peticaoGeradaCard');
-        const peticaoGerada = document.getElementById('peticaoGerada');
-        const errorMessageCard = document.getElementById('errorMessageCard');
-        const errorMessage = document.getElementById('errorMessage');
-        const copyToClipboardBtn = document.getElementById('copyToClipboardBtn');
-        const tipoPeticao = document.getElementById('tipoPeticao'); // Get select element
-        const pdfUploadSection = document.getElementById('pdfUploadSection'); // Get PDF section
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const gameData = [
+                // AÇÃO POPULAR (12 casos)
+                { question: "Um cidadão descobre que a prefeitura contratou artistas superfaturados para o carnaval, sem licitação adequada, causando prejuízo ao erário.", answer: "AÇÃO POPULAR" },
+                { question: "Moradores constatam que a câmara municipal autorizou a compra de veículos de luxo para vereadores, em clara ofensa ao princípio da moralidade.", answer: "AÇÃO POPULAR" },
+                { question: "Um estudante percebe que a universidade pública celebrou convênio para privatizar bibliotecas sem transparência.", answer: "AÇÃO POPULAR" },
+                { question: "Cidadão denuncia a doação irregular de terrenos públicos a aliados políticos da gestão municipal.", answer: "AÇÃO POPULAR" },
+                { question: "A população identifica uso indevido de verbas do SUS em eventos particulares de uma ONG.", answer: "AÇÃO POPULAR" },
+                { question: "Uma licitação para obras de uma escola é direcionada para empresa de parentes do prefeito.", answer: "AÇÃO POPULAR" },
+                { question: "Cidadão contesta contratação milionária para reforma de estádio municipal em ano eleitoral, sem justificativa pública.", answer: "AÇÃO POPULAR" },
+                { question: "Uma comunidade descobre que recursos do Fundeb foram desviados para fins partidários.", answer: "AÇÃO POPULAR" },
+                { question: "Um contrato de concessão de transporte público beneficia apenas uma empresa, sem concorrência justa.", answer: "AÇÃO POPULAR" },
+                { question: "Cidadão percebe que a prefeitura demoliu prédio histórico sem consulta à população.", answer: "AÇÃO POPULAR" },
+                { question: "A câmara aprova aumento abusivo de salários de vereadores, sem respaldo orçamentário.", answer: "AÇÃO POPULAR" },
+                { question: "Cidadão contesta contrato secreto de publicidade firmado pelo governo estadual.", answer: "AÇÃO POPULAR" },
+                
+                // AÇÃO CIVIL PÚBLICA (12 casos)
+                { question: "O Ministério Público ajuíza ação para obrigar empresa poluidora a despoluir rio contaminado.", answer: "AÇÃO CIVIL PÚBLICA" },
+                { question: "ONG ingressa com ação para garantir acessibilidade em todas as estações de metrô da cidade.", answer: "AÇÃO CIVIL PÚBLICA" },
+                { question: "O MP move ação contra rede de supermercados que cobra preços abusivos durante crise de alimentos.", answer: "AÇÃO CIVIL PÚBLICA" },
+                { question: "Associação ambiental pede suspensão de construção de porto que ameaça reserva natural.", answer: "AÇÃO CIVIL PÚBLICA" },
+                { question: "O MP ajuíza ação para garantir fornecimento regular de medicamentos em hospital público.", answer: "AÇÃO CIVIL PÚBLICA" },
+                { question: "Entidade de defesa do consumidor contesta cláusulas abusivas em contratos de telefonia.", answer: "AÇÃO CIVIL PÚBLICA" },
+                { question: "MP propõe ação contra aplicativos de transporte que descumprem regras trabalhistas básicas.", answer: "AÇÃO CIVIL PÚBLICA" },
+                { question: "Associação cultural ajuíza ação contra construtora que ameaça patrimônio tombado.", answer: "AÇÃO CIVIL PÚBLICA" },
+                { question: "O MP pede à Justiça que determine obras urgentes em barragem com risco de rompimento.", answer: "AÇÃO CIVIL PÚBLICA" },
+                { question: "Defensoria Pública ajuíza ação para garantir moradia a famílias em situação de rua.", answer: "AÇÃO CIVIL PÚBLICA" },
+                { question: "ONG de saúde coletiva entra com ação contra empresa de cigarros por publicidade irregular a jovens.", answer: "AÇÃO CIVIL PÚBLICA" },
+                { question: "O MP pede interdição de lixão irregular que prejudica a saúde de comunidade carente.", answer: "AÇÃO CIVIL PÚBLICA" },
 
-        // --- INSTRUÇÃO IMPORTANTE PARA DEPLOYMENT ONLINE ---
-        // Quando você implanta este site, a chave de API da Google Gemini
-        // não é mais automaticamente fornecida como no ambiente Canvas.
-        // O erro "METHOD DOESN'T ALLOW UNREGISTERED CALLERS" indica que
-        // a API está sendo chamada sem uma chave de API válida ou com uma
-        // chave que não permite acesso público.
-        //
-        // PARA RESOLVER:
-        // 1. Vá ao Google Cloud Console: console.cloud.google.com
-        // 2. Crie um novo projeto (ou use um existente).
-        // 3. Habilite a "Generative Language API" para este projeto.
-        // 4. Em "APIs & Services" > "Credentials", crie uma nova chave de API.
-        //    (É recomendável restringir esta chave a domínios específicos para segurança).
-        // 5. Substitua a linha abaixo pela SUA CHAVE DE API gerada:
-        //    Exemplo: const YOUR_API_KEY = "SUA_CHAVE_DE_API_AQUI";
-        //    E então use YOUR_API_KEY na URL da API.
-        //
-        // ATENÇÃO: Compartilhar sua chave de API publicamente pode ser um risco de segurança.
-        // Para aplicações em produção, é mais seguro usar um backend para chamar a API,
-        // mantendo a chave de API no lado do servidor.
-        // -----------------------------------------------------
-        const API_KEY_FOR_DEPLOYMENT = ""; // <-- SUBSTITUA ESTA LINHA PELA SUA CHAVE DE API DO GOOGLE CLOUD
-        // Se estiver executando no Canvas, você pode deixar esta linha vazia,
-        // pois o Canvas injeta a chave automaticamente para testes.
+                // HABEAS DATA (13 casos)
+                { question: "Um cidadão pede acesso ao histórico de contribuições previdenciárias que o INSS não fornece.", answer: "HABEAS DATA" },
+                { question: "Jornalista busca correção de dados distorcidos sobre sua carreira mantidos por órgão público.", answer: "HABEAS DATA" },
+                { question: "Estudante solicita informações pessoais registradas em banco de dados de universidade federal.", answer: "HABEAS DATA" },
+                { question: "Um militar reformado pede retificação de dados salariais junto ao sistema da União.", answer: "HABEAS DATA" },
+                { question: "Empresário busca excluir informação incorreta em cadastro da Receita Federal.", answer: "HABEAS DATA" },
+                { question: "Trabalhador recorre ao Judiciário para acessar dados do FGTS bloqueados pela Caixa.", answer: "HABEAS DATA" },
+                { question: "Cidadão pede para corrigir histórico criminal já extinto, mas ainda presente no sistema do TJ.", answer: "HABEAS DATA" },
+                { question: "Paciente pede acesso integral a seu prontuário em hospital público.", answer: "HABEAS DATA" },
+                { question: "Ativista solicita acesso a relatórios de inteligência que mencionam seu nome.", answer: "HABEAS DATA" },
+                { question: "Morador pede para excluir registro duplicado em banco de dados da prefeitura.", answer: "HABEAS DATA" },
+                { question: "Consumidor busca corrigir nota de inadimplência já quitada junto a banco público.", answer: "HABEAS DATA" },
+                { question: "Político pede acesso a dados da CGU que o relacionam a investigações arquivadas.", answer: "HABEAS DATA" },
+                { question: "Cidadão exige informações sobre dados usados em aplicativo oficial do governo.", answer: "HABEAS DATA" },
 
-        // Event listener for the "Generate Petition" button
-        gerarPeticaoBtn.addEventListener('click', async () => {
-            // Clear previous messages and hide output
-            peticaoGeradaCard.classList.add('hidden');
-            errorMessageCard.classList.add('hidden');
-            peticaoGerada.textContent = '';
-            errorMessage.textContent = '';
+                // MANDADO DE INJUNÇÃO (13 casos)
+                { question: "Servidores públicos ingressam com MI para exercer direito de greve por falta de lei específica.", answer: "MANDADO DE INJUNÇÃO" },
+                { question: "Policiais civis pedem aposentadoria especial, mas não há lei complementar regulamentando.", answer: "MANDADO DE INJUNÇÃO" },
+                { question: "Presos provisórios requerem MI para garantir direito ao voto sem regras claras sobre locais de votação.", answer: "MANDADO DE INJUNÇÃO" },
+                { question: "Deficientes pedem MI para assegurar acessibilidade em transporte interestadual, diante da omissão legal.", answer: "MANDADO DE INJUNÇÃO" },
+                { question: "Profissionais de saúde expostos a agentes nocivos pedem aposentadoria especial sem lei que discipline.", answer: "MANDADO DE INJUNÇÃO" },
+                { question: "Trabalhadores pedem MI para exigir regulamentação do adicional de periculosidade em certas categorias.", answer: "MANDADO DE INJUNÇÃO" },
+                { question: "Mulheres militares pedem MI para aplicação de regras de licença-maternidade sem lei regulamentadora.", answer: "MANDADO DE INJUNÇÃO" },
+                { question: "Estudantes universitários pedem MI para viabilizar meia-entrada em eventos quando lei estadual é omissa.", answer: "MANDADO DE INJUNÇÃO" },
+                { question: "Comunidade indígena pede MI para exigir regulamentação da demarcação de terras prevista na CF.", answer: "MANDADO DE INJUNÇÃO" },
+                { question: "Sindicatos pedem MI para assegurar revisão geral anual de salários de servidores sem lei específica.", answer: "MANDADO DE INJUNÇÃO" },
+                { question: "Jornalistas pedem MI para aplicação de regras de proteção em cobertura de risco, ainda sem lei própria.", answer: "MANDADO DE INJUNÇÃO" },
+                { question: "Atletas de e-Sports pedem MI para acesso a programas do COB, sem lei que regule sua inclusão.", answer: "MANDADO DE INJUNÇÃO" },
+                { question: "Motoristas de aplicativos pedem MI para regulamentar direitos previdenciários específicos ainda não legislados.", answer: "MANDADO DE INJUNÇÃO" }
+            ];
 
-            // Collect form data
-            const requerente = {
-                nome: document.getElementById('requerenteNome').value,
-                estadoCivil: document.getElementById('requerenteEstadoCivil').value,
-                profissao: document.getElementById('requerenteProfissao').value,
-                cpf: document.getElementById('requerenteCPF').value,
-                email: document.getElementById('requerenteEmail').value,
-                residencia: document.getElementById('requerenteResidencia').value,
-            };
+            const gameBoard = document.getElementById('game-board');
+            const scoreElement = document.getElementById('score');
+            const totalCardsElement = document.getElementById('total-cards');
+            const questionModal = document.getElementById('question-modal');
+            const questionText = document.getElementById('question-text');
+            const optionsContainer = document.getElementById('options-container');
+            const gameOverModal = document.getElementById('game-over-modal');
+            const finalScoreElement = document.getElementById('final-score');
+            const finalMessageElement = document.getElementById('final-message');
+            const nameModal = document.getElementById('name-modal');
+            const playerNameInput = document.getElementById('player-name-input');
+            const saveNameButton = document.getElementById('save-name-button');
+            
+            let shuffledData = [];
+            let score = 0;
+            let revealedCards = 0;
+            let currentCardElement = null;
+            let currentCardIndex = -1;
+            const totalCards = gameData.length;
+            const options = ["AÇÃO POPULAR", "AÇÃO CIVIL PÚBLICA", "HABEAS DATA", "MANDADO DE INJUNÇÃO"];
+            const storageKey = 'remedioGameData';
 
-            const requerido = {
-                nome: document.getElementById('requeridoNome').value,
-                cpfCnpj: document.getElementById('requeridoCPFCNPJ').value,
-                endereco: document.getElementById('requeridoEndereco').value,
-            };
-
-            const resumoDemanda = document.getElementById('resumoDemanda').value;
-
-            // Basic validation
-            if (!requerente.nome || !requerido.nome || !tipoPeticao.value || !resumoDemanda) {
-                errorMessage.innerHTML = '<span class="mr-3 text-2xl">⚠️</span> Por favor, preencha todos os campos obrigatórios: Nome do Requerente, Nome do Requerido, Tipo de Petição e Resumo da Demanda.';
-                errorMessageCard.classList.remove('hidden');
-                return;
+            function shuffle(array) {
+                for (let i = array.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [array[i], array[j]] = [array[j], array[i]];
+                }
+                return array;
             }
 
-            // Construct the prompt for the AI
-            // Note: The AI cannot directly read PDF content. The prompt relies solely on the 'resumoDemanda' field.
-            const prompt = `
-                Gere uma petição jurídica do tipo "${tipoPeticao.value}" com base nos seguintes dados e no resumo da demanda.
-                A petição deve ser formal, estruturada como um documento legal e em português do Brasil.
+            function updateCardAppearance(cardElement, item, index) {
+                cardElement.innerHTML = ''; // Limpa o conteúdo
+                cardElement.className = 'card h-24'; // Reseta as classes
 
-                ---
-                Dados do Requerente:
-                Nome Completo: ${requerente.nome || 'Não Informado'}
-                Estado Civil: ${requerente.estadoCivil || 'Não Informado'}
-                Profissão: ${requerente.profissao || 'Não Informada'}
-                CPF: ${requerente.cpf || 'Não Informado'}
-                Email: ${requerente.email || 'Não Informado'}
-                Endereço de Residência: ${requerente.residencia || 'Não Informado'}
+                const numberSpan = document.createElement('span');
+                numberSpan.className = 'absolute top-1 right-2 text-xs font-semibold';
+                numberSpan.textContent = index + 1;
+                
+                if (item.answered) {
+                    cardElement.classList.add('answered');
+                    if (item.correct) {
+                        cardElement.classList.add('correct');
+                    } else {
+                        cardElement.classList.add('incorrect');
+                    }
 
-                Dados do Requerido:
-                Nome/Razão Social: ${requerido.nome || 'Não Informado'}
-                CPF ou CNPJ: ${requerido.cpfCnpj || 'Não Informado'}
-                Endereço Completo: ${requerido.endereco || 'Não Informado'}
+                    const contentWrapper = document.createElement('div');
+                    contentWrapper.className = 'flex flex-col items-center justify-center text-center p-1';
 
-                Resumo da Demanda:
-                ${resumoDemanda}
-                ---
+                    const icon = document.createElement('div');
+                    icon.innerHTML = item.correct 
+                        ? `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" fill="currentColor" viewBox="0 0 16 16"><path d="M12.736 3.97a.733.733 0 0 1 1.047 0c.286.289.29.756.01 1.05L7.88 12.01a.733.733 0 0 1-1.065.02L3.217 8.384a.757.757 0 0 1 0-1.06.733.733 0 0 1 1.047 0l3.052 3.093 5.4-6.425z"/></svg>`
+                        : `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" fill="currentColor" viewBox="0 0 16 16"><path d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708"/></svg>`;
+                    
+                    const nameSpan = document.createElement('span');
+                    nameSpan.className = 'mt-1 text-xs font-semibold px-1 truncate w-full';
+                    nameSpan.textContent = item.playerName || 'Anônimo';
 
-                A petição deve seguir a estrutura de:
-                1.  **Excelentíssimo(a) Senhor(a) Doutor(a) Juiz(a) de Direito da [Vara/Comarca, se aplicável, senão deixar genérico]**
-                2.  **Qualificação das Partes:** Detalhar requerente e requerido com os dados fornecidos.
-                3.  **Dos Fatos:** Expor o resumo da demanda de forma clara e objetiva.
-                4.  **Do Direito:** Apresentar a fundamentação jurídica (cite artigos do Código Civil ou de Processo Civil, princípios jurídicos aplicáveis como "Dignidade da Pessoa Humana", "Boa-fé Objetiva", "Função Social do Contrato", "Reparação de Danos", "Responsabilidade Civil", etc., de forma genérica se não houver citação específica no resumo). Para Recurso Inominado, abordar a admissibilidade e o mérito.
-                5.  **Dos Pedidos:** Formular os pedidos específicos (condenação em danos morais, materiais, anulação de sentença, etc.). Incluir pedido de citação do requerido, produção de provas, e justiça gratuita se for o caso.
-                6.  **Valor da Causa:** Sugerir um valor simbólico ou deixar espaço para preenchimento.
-                7.  **Fechamento:** "Nestes termos, pede deferimento. [Cidade], [Dia] de [Mês] de [Ano]. [Nome do Advogado/Requerente, OAB (se aplicável)]"
+                    contentWrapper.appendChild(icon);
+                    contentWrapper.appendChild(nameSpan);
+                    cardElement.appendChild(contentWrapper);
 
-                A petição deve ser um texto contínuo e bem formatado, como um documento final. Não adicione comentários de código ou marcadores que não sejam parte da petição em si.
-            `;
+                } else {
+                    cardElement.classList.add('unanswered', 'cursor-pointer');
+                    const icon = document.createElement('div');
+                    icon.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" fill="currentColor" class="bi bi-patch-question-fill" viewBox="0 0 16 16"><path d="M5.933.87a2.89 2.89 0 0 1 4.134 0l.622.638.89-.011a2.89 2.89 0 0 1 2.924 2.924l-.01.89.638.622a2.89 2.89 0 0 1 0 4.134l-.638.622.011.89a2.89 2.89 0 0 1-2.924 2.924l-.89-.01-.622.638a2.89 2.89 0 0 1-4.134 0l-.622-.638-.89.01a2.89 2.89 0 0 1-2.924-2.924l.01-.89-.638-.622a2.89 2.89 0 0 1 0-4.134l.638-.622-.011-.89a2.89 2.89 0 0 1 2.924-2.924l.89.01zM7.002 11a1 1 0 1 0 2 0 1 1 0 0 0-2 0m1.602-2.027c.04-.534.198-.815.846-1.26.674-.475 1.05-1.09 1.05-1.996 0-1.172-1.01-1.945-2.317-1.945A2.31 2.31 0 0 0 6.05 7.245a.5.5 0 0 0 .894.447c.245-.494.636-.842 1.116-.842.61 0 .964.447.964 1.077 0 .445-.19.74-.69.982-.47.225-1.002.58-1.002 1.284a.5.5 0 0 0 .905.28z"/></svg>`;
+                    cardElement.appendChild(icon);
+                }
+                cardElement.appendChild(numberSpan);
+            }
 
-            // Show loading spinner and disable button
-            loadingSpinner.classList.remove('hidden');
-            gerarPeticaoBtn.disabled = true;
+            function handleCardClick(event) {
+                const card = event.currentTarget;
+                if (card.classList.contains('answered')) return;
 
-            try {
-                // Call the Gemini API
-                let chatHistory = [];
-                chatHistory.push({ role: "user", parts: [{ text: prompt }] });
-                const payload = { contents: chatHistory };
-                // Use a chave de API fornecida pelo usuário ou a injetada pelo Canvas
-                const currentApiKey = typeof __app_id !== 'undefined' ? "" : API_KEY_FOR_DEPLOYMENT; // Canvas injects key if __app_id exists, else use user's key
-                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${currentApiKey}`;
+                currentCardElement = card;
+                currentCardIndex = parseInt(card.dataset.index);
 
-
-                const response = await fetch(apiUrl, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
+                questionText.textContent = shuffledData[currentCardIndex].question;
+                optionsContainer.innerHTML = '';
+                
+                options.forEach(option => {
+                    const button = document.createElement('button');
+                    button.textContent = option;
+                    button.classList.add('bg-gray-200', 'text-gray-700', 'font-semibold', 'py-3', 'px-4', 'rounded-lg', 'hover:bg-gray-300', 'transition', 'duration-200', 'text-left');
+                    button.addEventListener('click', () => checkAnswer(option));
+                    optionsContainer.appendChild(button);
                 });
 
-                if (!response.ok) {
-                    const errorData = await response.json();
-                    console.error('API Error Response:', errorData); // Log full error response
-                    let errorMessageText = `Erro na comunicação com a IA: ${errorData.error?.message || response.statusText}.`;
+                questionModal.classList.remove('hidden');
+            }
 
-                    // Specific error message for unregistered callers
-                    if (errorData.error && errorData.error.message && errorData.error.message.includes("METHOD_LACKS_API_KEY") || errorData.error.message.includes("does not allow unregistered callers")) {
-                        errorMessageText += " Parece que a chave de API está faltando ou não tem permissões para acesso público. Por favor, verifique as instruções no código para configurar sua própria chave de API do Google Cloud.";
-                    } else {
-                        errorMessageText += " Por favor, tente novamente.";
-                    }
-                    throw new Error(errorMessageText);
+            function checkAnswer(selectedAnswer) {
+                questionModal.classList.add('hidden');
+                
+                const correctAnswer = shuffledData[currentCardIndex].answer;
+                const wasCorrect = (selectedAnswer === correctAnswer);
+
+                if (wasCorrect) {
+                    score++;
                 }
+                
+                shuffledData[currentCardIndex].answered = true;
+                shuffledData[currentCardIndex].correct = wasCorrect;
+                revealedCards++;
+                scoreElement.textContent = score;
 
-                const result = await response.json();
-                console.log('AI Response Result:', result); // Log full successful result
+                playerNameInput.value = '';
+                nameModal.classList.remove('hidden');
+                playerNameInput.focus();
+            }
 
-                // Check for generated content
-                if (result.candidates && result.candidates.length > 0 &&
-                    result.candidates[0].content && result.candidates[0].content.parts &&
-                    result.candidates[0].content.parts.length > 0) {
-                    const generatedText = result.candidates[0].content.parts[0].text;
-                    if (generatedText && generatedText.trim().length > 0) {
-                        peticaoGerada.textContent = generatedText;
-                        peticaoGeradaCard.classList.remove('hidden');
-                    } else {
-                        errorMessage.innerHTML = 'Não foi possível gerar a petição. A inteligência artificial não retornou conteúdo. Tente refinar o resumo da demanda.';
-                        errorMessageCard.classList.remove('hidden');
-                    }
+            function saveNameAndContinue() {
+                if (currentCardIndex === -1) return;
+
+                const playerName = playerNameInput.value.trim();
+                const displayName = playerName || "Anônimo";
+                
+                shuffledData[currentCardIndex].playerName = displayName;
+
+                try {
+                    localStorage.setItem(storageKey, JSON.stringify(shuffledData));
+                } catch (e) {
+                    console.error("Não foi possível salvar o progresso do jogo:", e);
+                }
+                
+                updateCardAppearance(currentCardElement, shuffledData[currentCardIndex], currentCardIndex);
+                
+                nameModal.classList.add('hidden');
+                currentCardIndex = -1;
+
+                if (revealedCards === totalCards) {
+                    setTimeout(showGameOver, 500);
+                }
+            }
+            
+            function showGameOver() {
+                finalScoreElement.textContent = `${score} / ${totalCards}`;
+                let message = "";
+                const percentage = (score / totalCards) * 100;
+                if (percentage === 100) {
+                    message = "Parabéns! Você tem um conhecimento impecável!";
+                } else if (percentage >= 80) {
+                    message = "Excelente! Você domina o assunto.";
+                } else if (percentage >= 50) {
+                    message = "Bom trabalho! Continue estudando para aprimorar.";
                 } else {
-                    errorMessage.innerHTML = 'A inteligência artificial não retornou uma resposta válida. Isso pode ocorrer se o resumo da demanda for muito vago ou sensível. Por favor, revise e tente novamente.';
-                    errorMessageCard.classList.remove('hidden');
+                    message = "Não desanime! A prática leva à perfeição.";
                 }
-            } catch (error) {
-                console.error('Erro ao gerar petição:', error);
-                errorMessage.innerHTML = `<span class="mr-3 text-2xl">🚨</span> Ocorreu um erro inesperado: ${error.message}. Verifique sua conexão e tente novamente.`;
-                errorMessageCard.classList.remove('hidden');
-            } finally {
-                // Hide loading spinner and enable button
-                loadingSpinner.classList.add('hidden');
-                gerarPeticaoBtn.disabled = false;
+                finalMessageElement.textContent = message;
+                gameOverModal.classList.remove('hidden');
             }
-        });
 
-        // Event listener for toggling PDF upload section based on petition type
-        tipoPeticao.addEventListener('change', () => {
-            if (tipoPeticao.value === 'Recurso Inominado') {
-                pdfUploadSection.classList.remove('hidden');
-            } else {
-                pdfUploadSection.classList.add('hidden');
+            function startGame() {
+                let savedData = null;
+                try {
+                    savedData = localStorage.getItem(storageKey);
+                } catch(e) { console.error("Não foi possível ler o progresso salvo:", e); }
+
+                if (savedData) {
+                    shuffledData = JSON.parse(savedData);
+                    score = shuffledData.filter(card => card.answered && card.correct).length;
+                    revealedCards = shuffledData.filter(card => card.answered).length;
+                } else {
+                    shuffledData = shuffle([...gameData]).map(item => ({
+                        ...item,
+                        answered: false,
+                        correct: null,
+                        playerName: null
+                    }));
+                    score = 0;
+                    revealedCards = 0;
+                }
+                
+                gameBoard.innerHTML = '';
+                scoreElement.textContent = score;
+                totalCardsElement.textContent = totalCards;
+                gameOverModal.classList.add('hidden');
+                nameModal.classList.add('hidden');
+                
+                shuffledData.forEach((item, index) => {
+                    const cardElement = document.createElement('div');
+                    cardElement.dataset.index = index;
+                    updateCardAppearance(cardElement, item, index);
+                    cardElement.addEventListener('click', handleCardClick);
+                    gameBoard.appendChild(cardElement);
+                });
+
+                 if (revealedCards === totalCards && totalCards > 0) {
+                    showGameOver();
+                }
             }
-        });
-
-        // Event listener for the "Copy to Clipboard" button
-        copyToClipboardBtn.addEventListener('click', () => {
-            const textToCopy = peticaoGerada.textContent;
-            try {
-                // Use execCommand for broader compatibility in iframes
-                const textArea = document.createElement('textarea');
-                textArea.value = textToCopy;
-                document.body.appendChild(textArea);
-                textArea.select();
-                document.execCommand('copy');
-                document.body.removeChild(textArea);
-
-                // Optionally, show a temporary success message
-                copyToClipboardBtn.innerHTML = '<span class="mr-2">✅</span> Copiado!';
-                setTimeout(() => {
-                    copyToClipboardBtn.innerHTML = '<span class="mr-2">📋</span> Copiar para Área de Transferência';
-                }, 2000);
-
-            } catch (err) {
-                console.error('Falha ao copiar texto: ', err);
-                // Fallback for older browsers or if execCommand fails
-                copyToClipboardBtn.innerHTML = '<span class="mr-2">❌</span> Erro ao Copiar!';
-                setTimeout(() => {
-                    copyToClipboardBtn.innerHTML = '<span class="mr-2">📋</span> Copiar para Área de Transferência';
-                }, 2000);
+            
+            function resetGame() {
+                try { localStorage.removeItem(storageKey); } catch (e) { console.error("Não foi possível limpar o progresso salvo:", e); }
+                startGame();
             }
+            
+            saveNameButton.addEventListener('click', saveNameAndContinue);
+            playerNameInput.addEventListener('keyup', (event) => {
+                if (event.key === 'Enter') {
+                    event.preventDefault();
+                    saveNameAndContinue();
+                }
+            });
+            document.getElementById('restart-button').addEventListener('click', resetGame);
+            document.getElementById('play-again-button').addEventListener('click', resetGame);
+
+            startGame();
         });
     </script>
+
 </body>
 </html>
